@@ -26,8 +26,9 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 	
 	public static final int POST_TEST_RECEPTION_TIMEOUT_WINDOW = 5000;
 	
-	protected int[] concurrencyLevels = {1, 10, 25, 50, 75, 100, 200, 300, 400, 500, 750, 1000, 1250, 1500, 2000};
-	private static final int MAX_MESSAGES_PER_SECOND_SENT = 800;		
+	protected int[] concurrencyLevels = {25, 50, 75, 100, 200, 300, 400, 500, 750, 1000, 1250, 1500, 2000};
+	//private static final int MAX_MESSAGES_PER_SECOND_SENT = 800;
+	private static final int MAX_MESSAGES_RECV_PER_SECOND = 500000;
 	
 	protected SocketClientFactory factory;
 	protected Set<SocketClient> clients = new HashSet<SocketClient>();
@@ -156,7 +157,7 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 		this.currentMessagesPerSecond = STARTING_MESSAGES_PER_SECOND_RATE;
 		double effectiveRate = 0;
 		
-		while(!this.lostConnection && !this.postTestTimeout && currentMessagesPerSecond < MAX_MESSAGES_PER_SECOND_SENT) {
+		while(!this.lostConnection && !this.postTestTimeout && currentMessagesPerSecond * this.concurrency < MAX_MESSAGES_RECV_PER_SECOND) {
 			System.out.print(concurrency + " connections at " + currentMessagesPerSecond + ": ");
 			
 			this.roundtripTimes = new ArrayList<Long>(SECONDS_TO_TEST_EACH_LOAD_STATE * currentMessagesPerSecond);
