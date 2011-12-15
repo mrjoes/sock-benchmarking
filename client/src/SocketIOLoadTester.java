@@ -20,11 +20,12 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 	public static final int STARTING_MESSAGES_PER_SECOND_RATE = 1;	
 	public static final int SECONDS_TO_TEST_EACH_LOAD_STATE = 3;
 
-	public static final int SECONDS_BETWEEN_TESTS = 2;
+	public static final int SECONDS_BETWEEN_TESTS = 1;
 	
 	public static final int MESSAGES_RECEIVED_PER_SECOND_RAMP = 1000;
 	
 	public static final int POST_TEST_RECEPTION_TIMEOUT_WINDOW = 5000;
+	public static final float MEAN_TIME_HARD_STOP = 1000;
 	
 	protected int[] concurrencyLevels = {25, 50, 75, 100, 200, 300, 400, 500, 750, 1000, 1250, 1500, 2000};
 	//private static final int MAX_MESSAGES_PER_SECOND_SENT = 800;
@@ -45,8 +46,11 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 		
 	private boolean testRunning;
 	
-	protected SocketIOLoadTester(SocketClientFactory factory, ArrayList<Integer> concurrencies) {
+	protected String namePrefix;
+	
+	protected SocketIOLoadTester(String namePrefix, SocketClientFactory factory, ArrayList<Integer> concurrencies) {
 		this.factory = factory;
+		this.namePrefix = namePrefix;
 		
 		if(concurrencies.size() > 0) {
 			System.out.print("Using custom concurrency levels: ");
@@ -68,7 +72,7 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 		
 		BufferedWriter f = null;
 		try {
-				f =  new BufferedWriter(new FileWriter(System.currentTimeMillis() + ".log"));
+			f =  new BufferedWriter(new FileWriter(this.namePrefix + System.currentTimeMillis() + ".log"));
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
@@ -184,9 +188,12 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 				break;
 			} else {
 				// Grab and store the summary statistics for this run.
-				statisticsForThisConcurrency.put(overallEffectiveRate, this.processRoundtripStats());
+				SummaryStatistics stats = this.processRoundtripStats();
+				statisticsForThisConcurrency.put(overallEffectiveRate, stats);
 				
-				// TODO Do a check here - if we saw a mean roundtrip time above 100ms or so, that's the congestion point and we should record that as the "knee" of the curve, basically.
+				// If we hit mean time limit, break it, there's no point to continue test
+				if (stats.getMean() >= MEAN_TIME_HARD_STOP)
+					break;
 			}
 			
 			// Make sure to always increase by at least 1 message per second. 
@@ -269,17 +276,23 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 	public static void main(String[] args) {
 		// Just start the thread.
 		
+		String prefix = "";
+		if (args.length > 0)
+		{
+			prefix = args[0];
+		}
+		
 		ArrayList<Integer> concurrencies = new ArrayList<Integer>();
-		if(args.length > 0) {
+		if (args.length > 1) {
 			// Assume all the arguments are concurrency levels we want to test at.
 
-			for(String arg : args) {
-				concurrencies.add(new Integer(arg));
+			for (int i = 1; i < args.length; ++i) {
+				concurrencies.add(new Integer(args[i]));
 			}
 		}
 		
 		SockJSClientFactory factory = new SockJSClientFactory();		
-		SocketIOLoadTester tester = new SocketIOLoadTester(factory, concurrencies);
+		SocketIOLoadTester tester = new SocketIOLoadTester(prefix, factory, concurrencies);
 		tester.start();
 	}
 
