@@ -42,9 +42,7 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 	protected Integer numConnectionsMade = 0;
 	
 	protected List<Long> roundtripTimes;
-	
-	private boolean postTestTimeout;
-	
+		
 	private boolean testRunning;
 	
 	protected SocketIOLoadTester(SocketClientFactory factory, ArrayList<Integer> concurrencies) {
@@ -83,7 +81,6 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 
 			// Reset the failure switches.
 			this.lostConnection = false;
-			this.postTestTimeout = false;
 
 			
 			System.out.println("---------------- CONCURRENCY " + this.concurrency + " ----------------");
@@ -157,7 +154,7 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 		this.currentMessagesPerSecond = STARTING_MESSAGES_PER_SECOND_RATE;
 		double effectiveRate = 0;
 		
-		while(!this.lostConnection && !this.postTestTimeout && currentMessagesPerSecond * this.concurrency < MAX_MESSAGES_RECV_PER_SECOND) {
+		while(!this.lostConnection && currentMessagesPerSecond * this.concurrency < MAX_MESSAGES_RECV_PER_SECOND) {
 			System.out.print(concurrency + " connections at " + currentMessagesPerSecond + ": ");
 			
 			this.roundtripTimes = new ArrayList<Long>(SECONDS_TO_TEST_EACH_LOAD_STATE * currentMessagesPerSecond);
@@ -173,7 +170,6 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 			System.out.print(String.format(" rate: %.3f ", overallEffectiveRate));
 			
 			// At this point, all messages have been sent so we should wait until they've all been received.
-			this.postTestTimeout = true;
 			synchronized(this) {
 				try {
 					this.wait(POST_TEST_RECEPTION_TIMEOUT_WINDOW);
@@ -183,8 +179,9 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 				}
 			}
 			
-			if(this.postTestTimeout) {
+			if (this.roundtripTimes.size() < SECONDS_TO_TEST_EACH_LOAD_STATE * currentMessagesPerSecond) {
 				System.out.println(" failed - not all messages received in " + POST_TEST_RECEPTION_TIMEOUT_WINDOW + "ms");
+				break;
 			} else {
 				// Grab and store the summary statistics for this run.
 				statisticsForThisConcurrency.put(overallEffectiveRate, this.processRoundtripStats());
@@ -224,12 +221,13 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 				
 				SocketClient client = clientsIterator.next();
 				client.sendTimestamp();
-				numMessages -= 1;
-				
+
 				if(!clientsIterator.hasNext()) {
 					clientsIterator = clients.iterator();
 				}
-							
+
+				numMessages -= 1;
+															
 				long delta = System.nanoTime() - messageStartTime;								
 				accumulator = accumulator + baseNsPerSend - delta;				
 			}
@@ -324,9 +322,8 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 	public void messageArrivedWithRoundtrip(long roundtripTime) {
 		this.roundtripTimes.add(roundtripTime);
 		
-		if(this.roundtripTimes.size() == SECONDS_TO_TEST_EACH_LOAD_STATE * currentMessagesPerSecond) {
+		if (this.roundtripTimes.size() == SECONDS_TO_TEST_EACH_LOAD_STATE * currentMessagesPerSecond) {
 			synchronized(this) {
-				this.postTestTimeout = false;
 				this.notifyAll();
 			}
 		}
