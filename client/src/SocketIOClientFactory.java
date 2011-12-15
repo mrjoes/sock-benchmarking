@@ -6,7 +6,7 @@ import java.net.URI;
 import java.net.URL;
 
 
-public class SocketIOClientFactory {
+public class SocketIOClientFactory implements SocketClientFactory {
 	public SocketClient newClient(String baseURI, SocketClientEventListener listener)
 	{
 		try {

@@ -299,7 +299,8 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 			}
 		}
 		
-		SockJSClientFactory factory = new SockJSClientFactory();		
+		//SockJSClientFactory factory = new SockJSClientFactory();
+		SocketIOClientFactory factory = new SocketIOClientFactory();
 		SocketIOLoadTester tester = new SocketIOLoadTester(prefix, factory, concurrencies);
 		tester.start();
 	}
