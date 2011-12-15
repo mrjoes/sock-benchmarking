@@ -9,6 +9,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Collections;
 
 import org.apache.commons.math.stat.descriptive.SummaryStatistics;
 
@@ -25,7 +26,7 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 	public static final int MESSAGES_RECEIVED_PER_SECOND_RAMP = 1000;
 	
 	public static final int POST_TEST_RECEPTION_TIMEOUT_WINDOW = 5000;
-	public static final float MEAN_TIME_HARD_STOP = 1000;
+	public static final float MEAN_TIME_HARD_STOP = 1500;
 	
 	protected int[] concurrencyLevels = {25, 50, 75, 100, 200, 300, 400, 500, 750, 1000, 1250, 1500, 2000};
 	//private static final int MAX_MESSAGES_PER_SECOND_SENT = 800;
@@ -104,6 +105,13 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 				}
 			}
 			
+			// Give chance to clean it up
+			try
+			{
+				Thread.sleep(POST_TEST_RECEPTION_TIMEOUT_WINDOW);
+			} catch (InterruptedException ex)
+			{
+			}		
 			
 			for(Double messageRate : summaryStats.keySet()) {
 				SummaryStatistics stats = summaryStats.get(messageRate);
@@ -161,7 +169,7 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 		while(!this.lostConnection && currentMessagesPerSecond * this.concurrency < MAX_MESSAGES_RECV_PER_SECOND) {
 			System.out.print(concurrency + " connections at " + currentMessagesPerSecond + ": ");
 			
-			this.roundtripTimes = new ArrayList<Long>(SECONDS_TO_TEST_EACH_LOAD_STATE * currentMessagesPerSecond);
+			this.roundtripTimes = Collections.synchronizedList(new ArrayList<Long>(SECONDS_TO_TEST_EACH_LOAD_STATE * currentMessagesPerSecond));
 			
 			double overallEffectiveRate = 0;
 
@@ -184,7 +192,7 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 			}
 			
 			if (this.roundtripTimes.size() < SECONDS_TO_TEST_EACH_LOAD_STATE * currentMessagesPerSecond) {
-				System.out.println(" failed - not all messages received in " + POST_TEST_RECEPTION_TIMEOUT_WINDOW + "ms");
+				System.out.println(" failed - not all messages received in " + POST_TEST_RECEPTION_TIMEOUT_WINDOW + "ms (" + this.roundtripTimes.size());
 				break;
 			} else {
 				// Grab and store the summary statistics for this run.
@@ -207,7 +215,7 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 			}
 		}		
 
-		this.testRunning = false;
+		this.testRunning = false;		
 		return statisticsForThisConcurrency;
 	}
 	
