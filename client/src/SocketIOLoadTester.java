@@ -15,15 +15,13 @@ import org.apache.commons.math.stat.descriptive.SummaryStatistics;
 
 
 public class SocketIOLoadTester extends Thread implements SocketClientEventListener {
-	// Address to test against
-	public static final String BASE_URI = "localhost:8080";
-	
+	// Address to test against	
 	public static final int STARTING_MESSAGES_PER_SECOND_RATE = 1;	
 	public static final int SECONDS_TO_TEST_EACH_LOAD_STATE = 3;
 
 	public static final int SECONDS_BETWEEN_TESTS = 1;
 	
-	public static final int MESSAGES_RECEIVED_PER_SECOND_RAMP = 1000;
+	public static final int MESSAGES_RECEIVED_PER_SECOND_RAMP = 10000;
 	
 	public static final int POST_TEST_RECEPTION_TIMEOUT_WINDOW = 5000;
 	public static final float MEAN_TIME_HARD_STOP = 1500;
@@ -32,6 +30,7 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 	//private static final int MAX_MESSAGES_PER_SECOND_SENT = 800;
 	private static final int MAX_MESSAGES_RECV_PER_SECOND = 500000;
 	
+	protected String host;
 	protected SocketClientFactory factory;
 	protected Set<SocketClient> clients = new HashSet<SocketClient>();
 	
@@ -49,7 +48,8 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 	
 	protected String namePrefix;
 	
-	protected SocketIOLoadTester(String namePrefix, SocketClientFactory factory, ArrayList<Integer> concurrencies) {
+	protected SocketIOLoadTester(String namePrefix, String host, SocketClientFactory factory, ArrayList<Integer> concurrencies) {
+		this.host = host;
 		this.factory = factory;
 		this.namePrefix = namePrefix;
 		
@@ -142,7 +142,7 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 		this.clients.clear();
 		
 		for(int i=0; i<this.concurrency; i++) {
-			SocketClient client = this.factory.newClient(BASE_URI, this);
+			SocketClient client = this.factory.newClient(this.host, this);
 			this.clients.add(client);
 			client.connect();
 		}
@@ -284,24 +284,41 @@ public class SocketIOLoadTester extends Thread implements SocketClientEventListe
 	public static void main(String[] args) {
 		// Just start the thread.
 		
-		String prefix = "";
-		if (args.length > 0)
-		{
-			prefix = args[0];
+		if (args.length < 3) {
+			System.out.format("Usage: java client.jar <protocol> <host> <prefix> <concurrencies list>?\n" +
+							  "Protocol is one of: sockjs, socketio, websocket\n");
+			return;
 		}
 		
+		String protocol = args[0];
+		String host = args[1];
+		String prefix = args[2];
+		
 		ArrayList<Integer> concurrencies = new ArrayList<Integer>();
-		if (args.length > 1) {
+		if (args.length > 3) {
 			// Assume all the arguments are concurrency levels we want to test at.
 
-			for (int i = 1; i < args.length; ++i) {
+			for (int i = 3; i < args.length; ++i) {
 				concurrencies.add(new Integer(args[i]));
 			}
 		}
 		
-		//SockJSClientFactory factory = new SockJSClientFactory();
-		SocketIOClientFactory factory = new SocketIOClientFactory();
-		SocketIOLoadTester tester = new SocketIOLoadTester(prefix, factory, concurrencies);
+		SocketClientFactory factory;
+		if (protocol.equals("sockjs")) {
+			factory = new SockJSClientFactory();
+		} else
+		if (protocol.equals("socketio")) {
+			factory = new SocketIOClientFactory();
+		} else
+		if (protocol.equals("websocket")) {
+			factory = new WebsocketClientFactory();
+		} else
+		{
+			System.out.println("Invalid transport name\n");
+			return;
+		}
+		
+		SocketIOLoadTester tester = new SocketIOLoadTester(prefix, host, factory, concurrencies);
 		tester.start();
 	}
 

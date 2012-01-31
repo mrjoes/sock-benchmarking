@@ -11,9 +11,7 @@ if __name__ == '__main__':
 
 		flattened = dict()
 		for d in data:
-			if d[0] not in flattened:
-				flattened[d[0]] = []
-			flattened[d[0]].append(d[1])
+			flattened[d[0]] = d[1]
 
 		for r in rates:
 			# Find closest rate
